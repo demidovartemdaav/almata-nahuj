@@ -16,6 +16,18 @@
   #game{display:block;background:#000}
   #hint{color:#7c7c8c;font:13px "Courier New",monospace;letter-spacing:1px;text-align:center;line-height:1.6}
   #hint b{color:#d8d8e4}
+  /* ---------- системные кнопки (fullscreen / звук) ---------- */
+  #sysbtns{position:fixed;top:10px;right:10px;display:flex;gap:8px;z-index:60}
+  #sysbtns button{position:relative;width:40px;height:40px;border-radius:50%;
+    background:rgba(28,28,40,.85);border:2px solid #000;
+    box-shadow:inset 0 3px 0 #34344c,inset 0 -3px 0 #06060c;
+    display:flex;align-items:center;justify-content:center;
+    touch-action:none;pointer-events:auto}
+  #sysbtns button:active{transform:scale(.92)}
+  #sysbtns svg{width:20px;height:20px;fill:#b8b8c4}
+  #btnSnd.off::after{content:'';position:absolute;left:8px;top:18px;width:24px;height:3px;
+    background:#c03830;transform:rotate(-45deg)}
+  /* ---------- сенсорный геймпад ---------- */
   #pad{position:fixed;inset:0;display:none;pointer-events:none;user-select:none;-webkit-user-select:none}
   #dp{position:absolute;left:16px;bottom:14px;width:146px;height:146px}
   .dk{position:absolute;pointer-events:auto;background:#191922;border:2px solid #000;
@@ -47,14 +59,6 @@
     width:68px;height:18px;border-radius:9px;background:#26262e;border:2px solid #000;
     box-shadow:inset 0 3px 0 #3a3a48,inset 0 -2px 0 #0a0a10;pointer-events:auto;touch-action:none}
   #stBtn:active{box-shadow:inset 0 2px 0 #3a3a48}
-  #muBtn{position:absolute;top:10px;left:12px;width:38px;height:38px;border-radius:50%;
-    background:#1c1c26;border:2px solid #000;
-    box-shadow:inset 0 3px 0 #34344c,inset 0 -3px 0 #06060c;
-    display:flex;align-items:center;justify-content:center;pointer-events:auto;touch-action:none}
-  #muBtn .sp{width:5px;height:10px;background:#b8b8c4}
-  #muBtn .tri{border-top:5px solid transparent;border-bottom:5px solid transparent;border-right:8px solid #b8b8c4}
-  #muBtn.off::after{content:'';position:absolute;left:7px;top:17px;width:24px;height:3px;
-    background:#c03830;transform:rotate(-45deg)}
   @keyframes stPulse{
     0%,100%{box-shadow:inset 0 3px 0 rgba(255,255,255,.18),inset 0 -3px 0 rgba(0,0,0,.5),
       0 0 0 0 rgba(230,60,45,0)}
@@ -68,7 +72,21 @@
       width:110px;height:30px;bottom:12px;background:#b03028;
       animation:stPulse 1.1s ease-in-out infinite;
     }
+    /* портрет: не блокируем игру — просто подсказка и компактный пад */
+    @media (orientation:portrait){
+      body{justify-content:flex-start;padding-top:36px}
+      #dp{transform:scale(.75);transform-origin:left bottom}
+      #ab{transform:scale(.75);transform-origin:right bottom}
+      body.await #stBtn{width:88px;height:24px}
+    }
   }
+  /* ненавязчивая подсказка в портрете */
+  #portraitTip{display:none;position:fixed;top:6px;left:50%;transform:translateX(-50%);
+    background:rgba(16,16,24,.8);color:#c8c8d4;border-radius:10px;padding:6px 14px;
+    font:700 11px Rubik,sans-serif;letter-spacing:.5px;z-index:50;
+    pointer-events:none;white-space:nowrap}
+  @media (orientation:portrait) and (pointer:coarse){#portraitTip{display:block}}
+  /* ---------- прелоадер ---------- */
   #loader{display:none;position:fixed;inset:0;z-index:200;background:#0a0a12;
     flex-direction:column;align-items:center;justify-content:center;gap:24px;
     font-family:Rubik,sans-serif}
@@ -92,13 +110,6 @@
     text-decoration:underline;pointer-events:auto}
   #fsHint{display:none;color:#8a8a99;font-size:11.5px;max-width:280px;
     text-align:center;line-height:1.55}
-  #rotate{display:none;position:fixed;inset:0;background:#08080d;z-index:100;
-    flex-direction:column;align-items:center;justify-content:center;gap:26px}
-  #rotate .ph{width:44px;height:82px;border:3px solid #c8c8d4;border-radius:8px;
-    animation:rot 1.8s ease-in-out infinite}
-  @keyframes rot{0%,22%{transform:rotate(0)}70%,100%{transform:rotate(90deg)}}
-  #rotate .txt{color:#c8c8d4;font:18px "Courier New",monospace;letter-spacing:4px}
-  @media (orientation:portrait) and (pointer:coarse){#rotate{display:flex}}
 </style>
 </head>
 <body>
@@ -106,6 +117,17 @@
 <div id="hint">
   <b>←↑↓→ / WASD</b> движение &nbsp;·&nbsp; <b>J</b> рука &nbsp;·&nbsp; <b>K</b> нога &nbsp;·&nbsp; <b>L</b> СУПЕР &nbsp;·&nbsp; <b>ENTER</b> старт/пауза &nbsp;·&nbsp; <b>M</b> звук
 </div>
+
+<div id="sysbtns">
+  <button id="btnFs" title="Во весь экран">
+    <svg viewBox="0 0 24 24"><path d="M4 4h6v3H7v3H4V4zm10 0h6v6h-3V7h-3V4zM4 14h3v3h3v3H4v-6zm13 0h3v6h-6v-3h3v-3z"/></svg>
+  </button>
+  <button id="btnSnd" data-k="MU" title="Звук">
+    <svg viewBox="0 0 24 24"><path d="M4 9v6h4l6 5V4L8 9H4zm13.5 3c0-1.8-1-3.3-2.5-4v8c1.5-.7 2.5-2.2 2.5-4zM15 2.5v2.1c2.9.9 5 3.6 5 6.9s-2.1 6-5 6.9v2.1c4-1 7-4.5 7-9s-3-8-7-9z"/></svg>
+  </button>
+</div>
+<div id="portraitTip">ПОВЕРНИ ТЕЛЕФОН ИЛИ НАЖМИ ⟰ СПРАВА</div>
+
 <div id="pad">
   <div id="dp">
     <div class="dk u" data-k="U"></div>
@@ -120,7 +142,6 @@
     <div class="abtn bC" data-k="SU"></div>
   </div>
   <div id="stBtn" data-k="ST"></div>
-  <div id="muBtn" data-k="MU"><span class="sp"></span><span class="tri"></span></div>
 </div>
 <div id="loader">
   <div class="lg">АЛМАТА НАХУЙ</div>
@@ -132,7 +153,6 @@
   </div>
   <div id="fsHint"></div>
 </div>
-<div id="rotate"><div class="ph"></div><div class="txt">ПОВЕРНИ ТЕЛЕФОН</div></div>
 
 <script>
 'use strict';
@@ -162,31 +182,38 @@ if(document.fonts&&document.fonts.load)
   .forEach(f=>document.fonts.load(f));
 
 /* ---------- полный экран ----------
-   tryFS вызывается только из настоящих жестов (click / touchend / keydown):
-   pointerdown в мобильных WebKit не даёт user activation, и запрос
-   requestFullscreen из него молча отклоняется — это и было причиной,
-   почему экран «не разворачивался». */
-function fsSupported(){
-  return !!(document.documentElement.requestFullscreen||
-            document.documentElement.webkitRequestFullscreen);
-}
-function tryFS(cb){
+   Явный жест (click) + запрос fullscreen; при успехе мягко просим
+   ландшафт (работает даже при системной блокировке авто-поворота).
+   Кнопка ⟰ доступна всегда и работает как переключатель. */
+function tryFS(cb,lock){
   const el=document.documentElement;
   if(document.fullscreenElement||document.webkitFullscreenElement){cb&&cb(true);return;}
   const fn=el.requestFullscreen||el.webkitRequestFullscreen;
   if(!fn){cb&&cb(false);return;}
+  const done=()=>{
+    if(lock&&screen.orientation&&screen.orientation.lock)
+      screen.orientation.lock('landscape').catch(()=>{});
+    cb&&cb(true);
+  };
   try{
     const r=fn.call(el);
-    if(r&&r.then)
-      r.then(()=>cb&&cb(true)).catch(()=>cb&&cb(false));
-    else
-      setTimeout(()=>cb&&cb(!!(document.fullscreenElement||document.webkitFullscreenElement)),400);
+    if(r&&r.then)r.then(done).catch(()=>cb&&cb(false));
+    else setTimeout(()=>{
+      if(document.fullscreenElement||document.webkitFullscreenElement)done();
+      else cb&&cb(false);
+    },400);
   }catch(e){cb&&cb(false);}
 }
+const btnFs=document.getElementById('btnFs');
+btnFs.addEventListener('click',()=>{
+  AU.init();
+  if(document.fullscreenElement||document.webkitFullscreenElement){
+    const ex=document.exitFullscreen||document.webkitExitFullscreen;
+    if(ex)ex.call(document);
+  }else tryFS(null,true);
+});
 addEventListener('pointerdown',()=>{AU.init();},{passive:true});
-['click','touchend'].forEach(ev=>
-  addEventListener(ev,()=>{AU.init();tryFS();},{passive:true}));
-addEventListener('keydown',()=>{AU.init();tryFS();});
+addEventListener('keydown',()=>{AU.init();});
 
 /* ---------- прелоадер ---------- */
 (function(){
@@ -198,8 +225,7 @@ addEventListener('keydown',()=>{AU.init();tryFS();});
   const start=()=>{loader.style.display='none';AU.init();};
   setTimeout(()=>{
     loader.classList.add('ready');
-    if(!fsSupported()){
-      // iPhone: Fullscreen API отсутствует — сразу честный режим
+    if(!(document.documentElement.requestFullscreen||document.documentElement.webkitRequestFullscreen)){
       ldFs.textContent='ИГРАТЬ';
       ldWin.style.display='none';
       fsHint.style.display='block';
@@ -209,8 +235,8 @@ addEventListener('keydown',()=>{AU.init();tryFS();});
   },1200);
   ldFs.addEventListener('click',()=>{
     AU.init();
-    if(!fsSupported()){start();return;}
-    tryFS(()=>start());
+    if(!(document.documentElement.requestFullscreen||document.documentElement.webkitRequestFullscreen)){start();return;}
+    tryFS(()=>start(),true);
   });
   ldWin.addEventListener('click',()=>{AU.init();start();});
 })();
@@ -294,7 +320,7 @@ addEventListener('keydown',e=>{
   if(!down[k])hit[k]=1; down[k]=1;
 });
 addEventListener('keyup',e=>{const k=KEYMAP[e.code]; if(k)down[k]=0;});
-document.querySelectorAll('#pad [data-k]').forEach(b=>{
+document.querySelectorAll('#pad [data-k],#sysbtns [data-k]').forEach(b=>{
   const k=b.dataset.k;
   const on=e=>{e.preventDefault();AU.init();if(!down[k])hit[k]=1;down[k]=1;b.classList.add('on');};
   const off=()=>{down[k]=0;b.classList.remove('on');};
@@ -324,7 +350,7 @@ const AU={
     }catch(e){}
   },
   toggle(){ this.muted=!this.muted; if(this.mast)this.mast.gain.value=this.muted?0:.5;
-    const b=document.getElementById('muBtn'); if(b)b.classList.toggle('off',this.muted); },
+    const b=document.getElementById('btnSnd'); if(b)b.classList.toggle('off',this.muted); },
   now(){return this.ctx?this.ctx.currentTime:0;},
   osc(type,f0,f1,t0,dur,vol){
     const c=this.ctx; if(!c)return;
