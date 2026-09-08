@@ -63,7 +63,6 @@
     50%{box-shadow:inset 0 3px 0 rgba(255,255,255,.25),inset 0 -3px 0 rgba(0,0,0,.5),
       0 0 20px 7px rgba(230,60,45,.75)}
   }
-  /* пульсация кнопки СУПЕР при полной шкале */
   @keyframes supPulse{
     0%,100%{box-shadow:inset 0 4px 0 rgba(255,255,255,.16),inset 0 -5px 0 rgba(0,0,0,.55),
       0 4px 0 #000,0 0 0 0 rgba(90,160,255,0)}
@@ -433,7 +432,7 @@ const HEROES=[
   build:'slim',speed:1.05,range:1.0,
   pal:{hair:'#3a2a18',skin:'#eab585',shirt:'#e8e8ea',pants:'#2e3450',shoe:'#c8c8cc'},
   feat:{hair:'short'},prop:'guitar'},
- {id:'sanya',name:'САНЯ «КРАБ»',superDesc:'вырывает дерево и лупит им',
+ {id:'sanya',name:'САНЯ «КРАБ»',superDesc:'большое дерево — и им лупит',
   quips:['ШАЛОВКА!','УУУЙДИ!'],
   build:'slim',speed:1.1,range:1.0,
   pal:{hair:'#caa24a',skin:'#e2a878',shirt:'#2f8f8a',pants:'#5a5a62',shoe:'#26262c'},
@@ -1093,9 +1092,9 @@ const SUPERPOSE={
  },
  tree(p,T){
   if(T<.35){p.crouch=1;p.hF={x:7,y:11};p.hB={x:-4,y:11};p.lean=7;}
-  else if(T<.55){p.hF={x:-4,y:-18};p.hB={x:-11,y:-14};p.lean=-5;}
-  else if(T<.75){p.hF={x:24,y:-4};p.hB={x:14,y:-5};p.lean=13;p.crouch=.3;}
-  else{p.hF={x:18,y:0};p.lean=9;p.crouch=.3;}
+  else if(T<.55){p.hF={x:8,y:-26};p.hB={x:-3,y:-22};p.lean=-4;}
+  else if(T<.75){p.hF={x:22,y:28};p.hB={x:6,y:24};p.lean=12;p.crouch=.2;}
+  else{p.hF={x:20,y:24};p.hB={x:4,y:20};p.lean=9;p.crouch=.2;}
  },
  dog(p){p.hF={x:7,y:-13};p.lean=3;p.hB={x:-8,y:0};},
  fists(p,T){
@@ -1246,6 +1245,7 @@ const SUPERDRAW={
   drawGuitar(c,bx,by,gx,gy);
  },
  tree(c,o,p,sk){
+  /* БОЛЬШОЕ дерево — ~1.5 роста персонажа */
   const T=o.stateT;
   if(T<.32){
    c.fillStyle='#2c5a20';el(c,sk.shX+15,-9,7,5);c.fill();
@@ -1255,20 +1255,28 @@ const SUPERDRAW={
    return;
   }
   let tx,ty,lx,ly;
-  if(T<.55){tx=sk.shX-4;ty=sk.shY-25;lx=tx-25;ly=ty-11;}
-  else if(T<.75){tx=sk.shX+28;ty=sk.shY+4;lx=tx+29;ly=ty-11;}
-  else{tx=sk.shX+21;ty=sk.hipY-4;lx=tx+22;ly=ty-7;}
+  if(T<.55){tx=sk.shX+6;ty=sk.shY+10;lx=tx-16;ly=ty-72;}
+  else if(T<.75){tx=sk.shX+12;ty=sk.hipY+6;lx=tx+66;ly=ty-18;}
+  else{tx=sk.shX+8;ty=sk.hipY+2;lx=tx+52;ly=ty-30;}
   c.lineCap='round';
-  c.strokeStyle='#3a2812';c.lineWidth=9.4;
+  // ствол с корнями
+  c.strokeStyle='#3a2812';c.lineWidth=13;
   c.beginPath();c.moveTo(tx,ty);c.lineTo(lx,ly);c.stroke();
-  c.strokeStyle='#6a4a2a';c.lineWidth=6;
+  c.strokeStyle='#6a4a2a';c.lineWidth=9;
   c.beginPath();c.moveTo(tx,ty);c.lineTo(lx,ly);c.stroke();
+  c.strokeStyle='rgba(255,255,255,.16)';c.lineWidth=2.2;
+  c.beginPath();c.moveTo(tx-1,ty-2);c.lineTo(lx-1,ly-2);c.stroke();
+  // большая крона
   c.fillStyle='#2c5a20';
-  el(c,lx,ly+2,11,7.5);c.fill();el(c,lx-6,ly+5,6,5);c.fill();el(c,lx+7,ly+4,7,5.5);c.fill();
+  el(c,lx,ly+4,24,16);c.fill();
+  el(c,lx-16,ly+10,14,10);c.fill();
+  el(c,lx+16,ly+8,15,11);c.fill();
   c.fillStyle='#3f7a30';
-  el(c,lx,ly-4,10,6.5);c.fill();el(c,lx+4,ly-1,7,5);c.fill();
+  el(c,lx,ly-6,20,13);c.fill();
+  el(c,lx+10,ly-2,14,10);c.fill();
+  el(c,lx-11,ly-2,12,9);c.fill();
   c.fillStyle='#57a044';
-  el(c,lx-2,ly-6,6,4);c.fill();
+  el(c,lx-4,ly-10,12,8);c.fill();
  },
 };
 function drawFighter(c,o){
@@ -1311,17 +1319,17 @@ function drawFighter(c,o){
     case 'hurt':{p.lean=-11;p.hF={x:-5,y:-11};p.hB={x:-13,y:-7};p.fF={x:13};p.fB={x:-11};break;}
     case 'fly':{p.lean=-16;p.hF={x:-9,y:-16};p.hB={x:-14,y:-11};p.fF={x:20,y:-11};p.fB={x:13,y:-6};break;}
     case 'down': case 'lying': case 'out': lying=true;break;
-    /* позы финальной сцены: ноги всегда расставлены и видимы */
+    /* финальная сцена: гриф вправо, ноги широко + притоп */
     case 'guitarPlay':{
-      p.fF={x:12};p.fB={x:-10};
-      p.hF={x:13+Math.sin(t*7)*2,y:20};   // правая брынчет у струн
-      p.hB={x:1,y:5};                      // левая держит гриф
+      p.fF={x:12+Math.sin(t*3.5)*2};p.fB={x:-10};
+      p.hF={x:26+Math.sin(t*6)*2,y:-26};
+      p.hB={x:-12,y:-8};
       p.lean=3+Math.sin(t*3.5)*2;break;
     }
     case 'bassPlay':{
-      p.fF={x:12};p.fB={x:-10};
-      p.hF={x:15+Math.sin(t*5)*2,y:20};
-      p.hB={x:-14,y:-8};
+      p.fF={x:12+Math.sin(t*2.8)*2};p.fB={x:-10};
+      p.hF={x:24+Math.sin(t*4)*2,y:-24};
+      p.hB={x:-10,y:-6};
       p.lean=3+Math.sin(t*2.8)*2;break;
     }
     case 'rap':{
@@ -1406,7 +1414,7 @@ function drawFighter(c,o){
   c.strokeStyle='rgba(255,255,255,.18)';c.lineWidth=1.4;c.lineCap='round';
   c.beginPath();c.moveTo(2,hipY-4);c.lineTo(kf.x,kf.y+2);c.stroke();
   c.fillStyle=C(P.shoe);rr(c,ff.x-2.6,ff.y-6,10,6,2.6);c.fill();
-  c.fillStyle='rgba(255,255,255,.35)';rr(c,ff.x-2.6,ff.y-2.2,10,1.6,0.8);c.fill();
+  c.fillStyle='rgba(255,255,255,.35)';rr(c,ff.x-2.6,ff.y-2.2,10,1.6,0.8);g.fill&&g.fill();
   c.fillStyle='rgba(0,0,0,.4)';rr(c,ff.x-2.6,ff.y-1,10,1.2,0.6);c.fill();
   sh={x:shX+2,y:shY};hd={x:shX+p.hF.x,y:shY+p.hF.y};
   elb={x:(sh.x+hd.x)/2,y:(sh.y+hd.y)/2+p.bF};
@@ -1554,14 +1562,14 @@ function spark(x,y,n,col,sp){
   }
 }
 function leaves(x,y){
-  for(let i=0;i<12;i++)
-    G.parts.push({x:x+(Math.random()*30-15),y:y-Math.random()*30,vx:Math.random()*60-30,vy:-20-Math.random()*40,
-      g:120,life:.9,max:.9,col:Math.random()<.5?'#57a044':'#3f7a30',s:2.6});
+  for(let i=0;i<16;i++)
+    G.parts.push({x:x+(Math.random()*44-22),y:y-Math.random()*36,vx:Math.random()*80-40,vy:-24-Math.random()*46,
+      g:120,life:1,max:1,col:Math.random()<.5?'#57a044':'#3f7a30',s:2.8});
 }
 function dirt(x,y){
-  for(let i=0;i<8;i++)
-    G.parts.push({x:x+(Math.random()*16-8),y,vx:Math.random()*50-25,vy:-60-Math.random()*50,
-      g:400,life:.5,max:.5,col:'#6a4a2a',s:2.6});
+  for(let i=0;i<10;i++)
+    G.parts.push({x:x+(Math.random()*20-10),y,vx:Math.random()*60-30,vy:-70-Math.random()*60,
+      g:400,life:.5,max:.5,col:'#6a4a2a',s:2.8});
 }
 function addQuip(t2,x,y,size,col){G.quips.push({txt:t2,x,y,t:0,dur:1.25,size:size||21,col:col||'#ffe060'});}
 function addPop(x,y,t2){G.pops.push({txt:t2,x,y,t:0});}
@@ -1634,9 +1642,12 @@ const SUPERS={
   if(p.stateT>=1.05)endSuper(p);
  },
  tree(p,dt){
-  if(!p.sPh&&p.stateT>=.32){p.sPh=1;G.shake=3;dirt(p.x+p.dir*22,p.footY);}
-  if(p.sPh===1&&p.stateT>=.62){p.sPh=2;superHit(p,132,46,2.1);leaves(p.x+p.dir*52,p.footY-16);}
-  if(p.stateT>=1.3){leaves(p.x+p.dir*34,p.footY-34);endSuper(p);}
+  if(!p.sPh&&p.stateT>=.32){p.sPh=1;G.shake=4;dirt(p.x+p.dir*24,p.footY);}
+  if(p.sPh===1&&p.stateT>=.62){
+    p.sPh=2;superHit(p,150,48,2.3);
+    leaves(p.x+p.dir*70,p.footY-24);G.shake=6;
+  }
+  if(p.stateT>=1.5){leaves(p.x+p.dir*52,p.footY-30);endSuper(p);}
  },
  dog(p,dt){
   if(!p.sPh){p.sPh=1;spawnDog(p);}
@@ -1903,7 +1914,7 @@ function updatePlay(dt){
 /* ---------------- РЕНДЕР ---------------- */
 function drawShadow(sx,y,z){
   const s=clamp(1-z/110,.35,1);
-  g.fillStyle='rgba(0,0,0,.34)';
+  g.fillStyle='rgba(0,0,0,.4)';
   el(g,sx,y-1,18*s,3.4);g.fill();
   el(g,sx,y-1,11*s,1.6);g.fill();
 }
@@ -2188,7 +2199,7 @@ function renderTitle(){
   if(G.time%1.2<.75)
     txt(isCoarse?'PRESS START':'PRESS ENTER',W/2,144,
       '900 24px Rubik, sans-serif','#ffe060','center','middle',6);
-  txt('© ПЕРВЫЙ РАЙОН 1991 · АЛМАТА',W/2,262,'500 12px Rubik, sans-serif','#a89878');
+  txt('© ПЕРВЫЙ РАЙОН 2026 · АЛМАТА',W/2,262,'500 12px Rubik, sans-serif','#a89878');
   vignette();
 }
 function renderSelect(){
@@ -2240,31 +2251,44 @@ function renderGameOver(){
   if(G.time%1.2<.75)
     txt(EN+' — ПРОДОЛЖИТЬ',W/2,186,'900 17px Rubik, sans-serif','#ffe060','center','middle',5);
 }
-/* финальная сцена: инструменты выше пояса, ноги свободны */
+/* финальная сцена: тёмная вечерняя подложка — ноги читаются чётко */
 function renderWin(){
   const L=G.lv,camw=L.len-W-10;
   drawBG(L,camw);
-  // Владимир: гитара перед корпусом, гриф влево-вверх
-  drawFighter(g,{x:70,y:206,dir:1,state:'guitarPlay',t:G.time,
-    pal:HEROES[0].pal,build:HEROES[0].build,feat:HEROES[0].feat,prop:'guitar',dur:.3,scale:1});
-  drawGuitar(g,86+Math.sin(G.time*3.5)*1.2,176,56+Math.sin(G.time*3.5)*2.4,140);
-  // Саня: бас, корпус у пояса, гриф через левую руку
-  drawFighter(g,{x:124,y:206,dir:1,state:'bassPlay',t:G.time,
-    pal:HEROES[1].pal,build:HEROES[1].build,feat:HEROES[1].feat,prop:'tree',dur:.3,scale:1});
-  drawBass(g,142+Math.sin(G.time*2.8)*1.2,174,104+Math.sin(G.time*2.8)*2.2,136);
-  // Димон гладит гончую
-  drawFighter(g,{x:182,y:206,dir:1,state:'pet',t:G.time,
-    pal:HEROES[2].pal,build:HEROES[2].build,feat:HEROES[2].feat,prop:'dog',dur:.3,scale:1});
-  drawDogEnt({x:212,y:206,dir:1,phase:0,state:'sit',alpha:1,big:true,wag:true},212);
+  // вечерняя подложка-«двор» позади компании
+  g.fillStyle='rgba(16,14,26,.5)';
+  g.fillRect(-10,182,W+20,86);
+  g.strokeStyle='rgba(255,255,255,.05)';g.lineWidth=1;
+  for(let x=-(G.time*3%24|0);x<W;x+=24){
+    g.beginPath();g.moveTo(x,196);g.lineTo(x-6,268);g.stroke();
+  }
+  const FY=218;
+  // Владимир: гриф вправо-вверх
+  drawShadow(70,FY,0);
+  drawFighter(g,{x:70,y:FY,dir:1,state:'guitarPlay',t:G.time,
+    pal:HEROES[0].pal,build:HEROES[0].build,feat:HEROES[0].feat,prop:'none',dur:.3,scale:1});
+  drawGuitar(g,58+Math.sin(G.time*3.5)*1.2,180,100+Math.sin(G.time*3.5)*2,148);
+  // Саня с басом
+  drawShadow(124,FY,0);
+  drawFighter(g,{x:124,y:FY,dir:1,state:'bassPlay',t:G.time,
+    pal:HEROES[1].pal,build:HEROES[1].build,feat:HEROES[1].feat,prop:'none',dur:.3,scale:1});
+  drawBass(g,112+Math.sin(G.time*2.8)*1.2,178,158+Math.sin(G.time*2.8)*2.2,148);
+  // Димон гладит гончую (собака мордой к нему)
+  drawShadow(176,FY,0);
+  drawFighter(g,{x:176,y:FY,dir:1,state:'pet',t:G.time,
+    pal:HEROES[2].pal,build:HEROES[2].build,feat:HEROES[2].feat,prop:'none',dur:.3,scale:1});
+  drawShadow(228,FY,0);
+  drawDogEnt({x:228,y:FY,dir:-1,phase:0,state:'sit',alpha:1,big:true,wag:true},228);
   // Ера читает рэп
-  drawFighter(g,{x:250,y:206,dir:1,state:'rap',t:G.time,
-    pal:HEROES[3].pal,build:HEROES[3].build,feat:HEROES[3].feat,prop:'fists',dur:.3,scale:1});
+  drawShadow(270,FY,0);
+  drawFighter(g,{x:270,y:FY,dir:1,state:'rap',t:G.time,
+    pal:HEROES[3].pal,build:HEROES[3].build,feat:HEROES[3].feat,prop:'none',dur:.3,scale:1});
   for(let k=0;k<3;k++){
     const rrr=5+k*6+Math.sin(G.time*4+k)*2;
     g.strokeStyle=`rgba(255,224,96,${(.45-k*.12).toFixed(2)})`;
     g.lineWidth=1.6;
     g.beginPath();
-    g.arc(268,178,rrr,-.6,.6);
+    g.arc(288,190,rrr,-.6,.6);
     g.stroke();
   }
   for(const pt of G.parts){
@@ -2322,7 +2346,6 @@ function reset(){
 function update(dt){
   G.time+=dt;
   syncBody();
-  // анимация кнопки СУПЕР при полной шкале
   const sr=(G.state==='play'&&G.player&&G.player.meter>=100)?1:0;
   if(sr!==G._sr){G._sr=sr;document.body.classList.toggle('supready',!!sr);}
   if(press('MU'))AU.toggle();
@@ -2371,9 +2394,9 @@ function update(dt){
       G.noteT-=dt;
       if(G.noteT<=0){
         G.noteT=.4;
-        G.parts.push({x:60+Math.random()*10,y:170,vx:12+Math.random()*12,vy:-12,
+        G.parts.push({x:92+Math.random()*10,y:150,vx:12+Math.random()*12,vy:-12,
           g:-3,life:1.7,max:1.7,col:'#f0e8d0',s:3,note:true});
-        G.parts.push({x:118+Math.random()*8,y:166,vx:10+Math.random()*10,vy:-14,
+        G.parts.push({x:148+Math.random()*8,y:146,vx:10+Math.random()*10,vy:-14,
           g:-3,life:1.7,max:1.7,col:'#f0e8d0',s:3,note:true});
       }
       for(let i=G.parts.length-1;i>=0;i--){
