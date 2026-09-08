@@ -16,7 +16,6 @@
   #game{display:block;background:#000}
   #hint{color:#7c7c8c;font:13px "Courier New",monospace;letter-spacing:1px;text-align:center;line-height:1.6}
   #hint b{color:#d8d8e4}
-  /* ---------- системные кнопки (fullscreen / звук) ---------- */
   #sysbtns{position:fixed;top:10px;right:10px;display:flex;gap:8px;z-index:60}
   #sysbtns button{position:relative;width:40px;height:40px;border-radius:50%;
     background:rgba(28,28,40,.85);border:2px solid #000;
@@ -27,7 +26,6 @@
   #sysbtns svg{width:20px;height:20px;fill:#b8b8c4}
   #btnSnd.off::after{content:'';position:absolute;left:8px;top:18px;width:24px;height:3px;
     background:#c03830;transform:rotate(-45deg)}
-  /* ---------- сенсорный геймпад ---------- */
   #pad{position:fixed;inset:0;display:none;pointer-events:none;user-select:none;-webkit-user-select:none}
   #dp{position:absolute;left:16px;bottom:14px;width:146px;height:146px}
   .dk{position:absolute;pointer-events:auto;background:#191922;border:2px solid #000;
@@ -65,6 +63,13 @@
     50%{box-shadow:inset 0 3px 0 rgba(255,255,255,.25),inset 0 -3px 0 rgba(0,0,0,.5),
       0 0 20px 7px rgba(230,60,45,.75)}
   }
+  /* пульсация кнопки СУПЕР при полной шкале */
+  @keyframes supPulse{
+    0%,100%{box-shadow:inset 0 4px 0 rgba(255,255,255,.16),inset 0 -5px 0 rgba(0,0,0,.55),
+      0 4px 0 #000,0 0 0 0 rgba(90,160,255,0)}
+    50%{box-shadow:inset 0 4px 0 rgba(255,255,255,.24),inset 0 -5px 0 rgba(0,0,0,.55),
+      0 4px 0 #000,0 0 24px 8px rgba(90,160,255,.9)}
+  }
   @media (pointer:coarse){
     #pad{display:block} #hint{display:none}
     body{gap:0}
@@ -72,7 +77,10 @@
       width:110px;height:30px;bottom:12px;background:#b03028;
       animation:stPulse 1.1s ease-in-out infinite;
     }
-    /* портрет: не блокируем игру — просто подсказка и компактный пад */
+    body.supready .bC{
+      background:#3a78e8;
+      animation:supPulse .85s ease-in-out infinite;
+    }
     @media (orientation:portrait){
       body{justify-content:flex-start;padding-top:36px}
       #dp{transform:scale(.75);transform-origin:left bottom}
@@ -80,13 +88,11 @@
       body.await #stBtn{width:88px;height:24px}
     }
   }
-  /* ненавязчивая подсказка в портрете */
   #portraitTip{display:none;position:fixed;top:6px;left:50%;transform:translateX(-50%);
     background:rgba(16,16,24,.8);color:#c8c8d4;border-radius:10px;padding:6px 14px;
     font:700 11px Rubik,sans-serif;letter-spacing:.5px;z-index:50;
     pointer-events:none;white-space:nowrap}
   @media (orientation:portrait) and (pointer:coarse){#portraitTip{display:block}}
-  /* ---------- прелоадер ---------- */
   #loader{display:none;position:fixed;inset:0;z-index:200;background:#0a0a12;
     flex-direction:column;align-items:center;justify-content:center;gap:24px;
     font-family:Rubik,sans-serif}
@@ -181,10 +187,6 @@ if(document.fonts&&document.fonts.load)
   ['500 12px Rubik','700 12px Rubik','800 13px Rubik','900 22px Rubik','900 58px Rubik']
   .forEach(f=>document.fonts.load(f));
 
-/* ---------- полный экран ----------
-   Явный жест (click) + запрос fullscreen; при успехе мягко просим
-   ландшафт (работает даже при системной блокировке авто-поворота).
-   Кнопка ⟰ доступна всегда и работает как переключатель. */
 function tryFS(cb,lock){
   const el=document.documentElement;
   if(document.fullscreenElement||document.webkitFullscreenElement){cb&&cb(true);return;}
@@ -215,7 +217,6 @@ btnFs.addEventListener('click',()=>{
 addEventListener('pointerdown',()=>{AU.init();},{passive:true});
 addEventListener('keydown',()=>{AU.init();});
 
-/* ---------- прелоадер ---------- */
 (function(){
   const loader=document.getElementById('loader');
   if(!isCoarse){loader.style.display='none';return;}
@@ -507,7 +508,7 @@ const G={state:'title',time:0,level:0,score:0,lives:6,selIdx:0,
   combo:0,comboT:0,player:null,enemies:[],parts:[],quips:[],pops:[],
   dog:null,cat:null,lv:null,selLv:null,waveIdx:0,waveActive:false,lockX:0,
   shake:0,flash:0,freeze:0,bannerT:0,deadTimer:0,rainDrops:[],smokeT:0,
-  jointT:0,smokeJ:0,noteT:0,tscene:null,_bsig:-1,_vig:null,_tsky:null};
+  jointT:0,smokeJ:0,noteT:0,tscene:null,_bsig:-1,_sr:-1,_vig:null,_tsky:null};
 const cam={x:0};
 
 /* ---------------- ГЕНЕРАЦИЯ УРОВНЕЙ ---------------- */
@@ -1310,15 +1311,18 @@ function drawFighter(c,o){
     case 'hurt':{p.lean=-11;p.hF={x:-5,y:-11};p.hB={x:-13,y:-7};p.fF={x:13};p.fB={x:-11};break;}
     case 'fly':{p.lean=-16;p.hF={x:-9,y:-16};p.hB={x:-14,y:-11};p.fF={x:20,y:-11};p.fB={x:13,y:-6};break;}
     case 'down': case 'lying': case 'out': lying=true;break;
+    /* позы финальной сцены: ноги всегда расставлены и видимы */
     case 'guitarPlay':{
-      p.fF={x:11};p.fB={x:-9};
-      p.hF={x:13+Math.sin(t*8)*2,y:2};
-      p.hB={x:-2,y:-15};p.lean=3;break;
+      p.fF={x:12};p.fB={x:-10};
+      p.hF={x:13+Math.sin(t*7)*2,y:20};   // правая брынчет у струн
+      p.hB={x:1,y:5};                      // левая держит гриф
+      p.lean=3+Math.sin(t*3.5)*2;break;
     }
     case 'bassPlay':{
-      p.fF={x:11};p.fB={x:-9};
-      p.hF={x:14+Math.sin(t*6)*2,y:3};
-      p.hB={x:-4,y:-16};p.lean=3;break;
+      p.fF={x:12};p.fB={x:-10};
+      p.hF={x:15+Math.sin(t*5)*2,y:20};
+      p.hB={x:-14,y:-8};
+      p.lean=3+Math.sin(t*2.8)*2;break;
     }
     case 'rap':{
       const sw=Math.sin(t*5.5);
@@ -2236,18 +2240,23 @@ function renderGameOver(){
   if(G.time%1.2<.75)
     txt(EN+' — ПРОДОЛЖИТЬ',W/2,186,'900 17px Rubik, sans-serif','#ffe060','center','middle',5);
 }
+/* финальная сцена: инструменты выше пояса, ноги свободны */
 function renderWin(){
   const L=G.lv,camw=L.len-W-10;
   drawBG(L,camw);
+  // Владимир: гитара перед корпусом, гриф влево-вверх
   drawFighter(g,{x:70,y:206,dir:1,state:'guitarPlay',t:G.time,
     pal:HEROES[0].pal,build:HEROES[0].build,feat:HEROES[0].feat,prop:'guitar',dur:.3,scale:1});
-  drawGuitar(g,80,182,116,148);
+  drawGuitar(g,86+Math.sin(G.time*3.5)*1.2,176,56+Math.sin(G.time*3.5)*2.4,140);
+  // Саня: бас, корпус у пояса, гриф через левую руку
   drawFighter(g,{x:124,y:206,dir:1,state:'bassPlay',t:G.time,
     pal:HEROES[1].pal,build:HEROES[1].build,feat:HEROES[1].feat,prop:'tree',dur:.3,scale:1});
-  drawBass(g,134,182,174,144);
+  drawBass(g,142+Math.sin(G.time*2.8)*1.2,174,104+Math.sin(G.time*2.8)*2.2,136);
+  // Димон гладит гончую
   drawFighter(g,{x:182,y:206,dir:1,state:'pet',t:G.time,
     pal:HEROES[2].pal,build:HEROES[2].build,feat:HEROES[2].feat,prop:'dog',dur:.3,scale:1});
   drawDogEnt({x:212,y:206,dir:1,phase:0,state:'sit',alpha:1,big:true,wag:true},212);
+  // Ера читает рэп
   drawFighter(g,{x:250,y:206,dir:1,state:'rap',t:G.time,
     pal:HEROES[3].pal,build:HEROES[3].build,feat:HEROES[3].feat,prop:'fists',dur:.3,scale:1});
   for(let k=0;k<3;k++){
@@ -2313,6 +2322,9 @@ function reset(){
 function update(dt){
   G.time+=dt;
   syncBody();
+  // анимация кнопки СУПЕР при полной шкале
+  const sr=(G.state==='play'&&G.player&&G.player.meter>=100)?1:0;
+  if(sr!==G._sr){G._sr=sr;document.body.classList.toggle('supready',!!sr);}
   if(press('MU'))AU.toggle();
   switch(G.state){
     case 'title':
@@ -2359,9 +2371,9 @@ function update(dt){
       G.noteT-=dt;
       if(G.noteT<=0){
         G.noteT=.4;
-        G.parts.push({x:76+Math.random()*12,y:166,vx:12+Math.random()*12,vy:-12,
+        G.parts.push({x:60+Math.random()*10,y:170,vx:12+Math.random()*12,vy:-12,
           g:-3,life:1.7,max:1.7,col:'#f0e8d0',s:3,note:true});
-        G.parts.push({x:132+Math.random()*10,y:162,vx:10+Math.random()*10,vy:-14,
+        G.parts.push({x:118+Math.random()*8,y:166,vx:10+Math.random()*10,vy:-14,
           g:-3,life:1.7,max:1.7,col:'#f0e8d0',s:3,note:true});
       }
       for(let i=G.parts.length-1;i>=0;i--){
