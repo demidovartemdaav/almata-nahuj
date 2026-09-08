@@ -63,20 +63,32 @@
   @media (pointer:coarse){
     #pad{display:block} #hint{display:none}
     body{gap:0}
-    body.titled #stBtn{
+    body.await #stBtn{
       width:110px;height:30px;bottom:12px;background:#b03028;
       animation:stPulse 1.1s ease-in-out infinite;
     }
   }
-  #fsBtn{display:none;position:fixed;top:14px;left:50%;transform:translateX(-50%);
-    padding:11px 24px;background:rgba(16,16,24,.92);color:#ffe060;
-    border:2px solid #c83030;border-radius:12px;
-    font:800 15px Rubik,sans-serif;letter-spacing:1px;z-index:40;
-    box-shadow:0 4px 16px rgba(0,0,0,.55);pointer-events:auto;touch-action:none}
-  #fsBtn:active{transform:translateX(-50%) scale(.95)}
-  @media (pointer:coarse){
-    body.titled.canfs:not(.fs) #fsBtn{display:block}
-  }
+  /* ---------- прелоадер (мобильный) ---------- */
+  #loader{display:none;position:fixed;inset:0;z-index:200;background:#0a0a12;
+    flex-direction:column;align-items:center;justify-content:center;gap:24px;
+    font-family:Rubik,sans-serif}
+  @media (pointer:coarse){#loader{display:flex}}
+  #loader .lg{color:#f0e8d0;font-weight:900;font-size:34px;letter-spacing:1px;
+    text-shadow:0 3px 0 #8a2020}
+  #loader .sub{color:#8a8a99;font-size:13px;margin-top:-14px}
+  #loader .bar{width:190px;height:6px;border-radius:3px;background:#1e1e2a;overflow:hidden}
+  #loader .bar i{display:block;height:100%;width:0;background:#c83030;border-radius:3px;
+    animation:ldbar 1.1s ease .1s forwards}
+  @keyframes ldbar{to{width:100%}}
+  #loader .btns{display:none;flex-direction:column;gap:14px;align-items:center}
+  #loader.ready .btns{display:flex}
+  #loader.ready .bar{opacity:.3}
+  #ldFs{padding:14px 36px;background:#b03028;border:2px solid #301010;color:#ffe060;
+    border-radius:12px;font:800 16px Rubik,sans-serif;letter-spacing:1px;
+    box-shadow:0 0 20px rgba(230,60,45,.55),inset 0 3px 0 rgba(255,255,255,.15)}
+  #ldFs:active{transform:scale(.95)}
+  #ldWin{background:none;border:none;color:#8a8a99;font:500 13px Rubik,sans-serif;
+    text-decoration:underline;pointer-events:auto}
   #rotate{display:none;position:fixed;inset:0;background:#08080d;z-index:100;
     flex-direction:column;align-items:center;justify-content:center;gap:26px}
   #rotate .ph{width:44px;height:82px;border:3px solid #c8c8d4;border-radius:8px;
@@ -107,18 +119,25 @@
   <div id="stBtn" data-k="ST"></div>
   <div id="muBtn" data-k="MU"><span class="sp"></span><span class="tri"></span></div>
 </div>
-<button id="fsBtn">НА ВЕСЬ ЭКРАН</button>
+<div id="loader">
+  <div class="lg">АЛМАТА НАХУЙ</div>
+  <div class="sub">уличная история</div>
+  <div class="bar"><i></i></div>
+  <div class="btns">
+    <button id="ldFs">НА ВЕСЬ ЭКРАН</button>
+    <button id="ldWin">играть в окне</button>
+  </div>
+</div>
 <div id="rotate"><div class="ph"></div><div class="txt">ПОВЕРНИ ТЕЛЕФОН</div></div>
 
 <script>
 'use strict';
-/* ============================================================
-   АЛМАТА НАХУЙ — уличный beat'em'up
-   ============================================================ */
 const W=480,H=270,STEP=1/60;
 const cv=document.getElementById('game');
 const g=cv.getContext('2d');
 const isCoarse=matchMedia('(pointer:coarse)').matches;
+const EN=isCoarse?'START':'ENTER'; // надпись кнопки подтверждения
+const RENT=150000; // цена аренды дома
 
 function fit(){
   const dpr=window.devicePixelRatio||1;
@@ -145,20 +164,30 @@ function tryFS(){
   if(!fn)return;
   try{ fn.call(el); }catch(e){}
 }
-document.getElementById('fsBtn').addEventListener('pointerdown',e=>{
-  e.preventDefault();AU.init();tryFS();
-});
 addEventListener('pointerdown',()=>{AU.init();tryFS();},{passive:true});
 addEventListener('keydown',()=>{AU.init();tryFS();});
+
+/* прелоадер: кнопка полного экрана на мобильных */
+(function(){
+  const loader=document.getElementById('loader');
+  if(!isCoarse){loader.style.display='none';return;}
+  setTimeout(()=>loader.classList.add('ready'),1200);
+  const go=()=>{loader.style.display='none';AU.init();};
+  document.getElementById('ldFs').addEventListener('pointerdown',e=>{
+    e.preventDefault();tryFS();go();
+  });
+  document.getElementById('ldWin').addEventListener('pointerdown',e=>{
+    e.preventDefault();go();
+  });
+})();
+
 function syncBody(){
   const fs=!!(document.fullscreenElement||document.webkitFullscreenElement);
-  const can=!!(document.documentElement.requestFullscreen||document.documentElement.webkitRequestFullscreen);
-  const sig=(fs?1:0)+(can?2:0)+(G.state==='title'?4:0);
+  const aw=['title','select','clear','gameover','win','pause'].includes(G.state)?1:0;
+  const sig=(fs?1:0)+(aw?2:0);
   if(sig===G._bsig)return;
   G._bsig=sig;
-  document.body.classList.toggle('fs',fs);
-  document.body.classList.toggle('canfs',can);
-  document.body.classList.toggle('titled',G.state==='title');
+  document.body.classList.toggle('await',!!aw);
 }
 
 const clamp=(v,a,b)=>v<a?a:v>b?b:v;
@@ -171,6 +200,7 @@ function shade(hex,f){
         b=clamp(Math.round((n&255)*f),0,255);
   return `rgb(${r},${gg},${b})`;
 }
+function fmtT(n){return String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g,' ');}
 function rr(c,x,y,w,h,r){
   r=Math.min(r,w/2,h/2);
   c.beginPath();
@@ -280,6 +310,9 @@ const AU={
   blip(){if(this.ctx)this.osc('square',700,700,this.now(),.05,.12);},
   confirm(){if(!this.ctx)return;const t=this.now();this.osc('square',520,780,t,.09,.15);},
   bark(){if(!this.ctx)return;const t=this.now();this.osc('sawtooth',480,140,t,.09,.3);this.osc('sawtooth',520,160,t+.14,.09,.3);},
+  barkBig(){if(!this.ctx)return;const t=this.now();
+    this.osc('sawtooth',220,55,t,.18,.42);this.noise(t,.14,.2,600);
+    this.osc('sawtooth',240,70,t+.22,.18,.42);},
   meow(){if(!this.ctx)return;const t=this.now();this.osc('sine',700,1050,t,.12,.15);this.osc('sine',1050,600,t+.13,.18,.15);},
   superGo(){if(!this.ctx)return;const t=this.now();this.osc('sawtooth',100,900,t,.25,.25);this.noise(t,.25,.2,3000,'highpass');},
   toke(){if(!this.ctx)return;const t=this.now();
@@ -333,7 +366,7 @@ const HEROES=[
   build:'slim',speed:1.1,range:1.0,
   pal:{hair:'#caa24a',skin:'#e2a878',shirt:'#2f8f8a',pants:'#5a5a62',shoe:'#26262c'},
   feat:{hair:'short'},prop:'tree'},
- {id:'dimon',name:'ДИМОН',superDesc:'рыжая гончая идёт за врагом',
+ {id:'dimon',name:'ДИМОН',superDesc:'большая гончая кусает врага',
   quips:['ПРОЩАМБА!','ЦЭРА ЕШЬ!'],
   build:'avg',speed:.95,range:1.0,
   pal:{hair:'#c05a20',skin:'#d9a06a',shirt:'#4a7a52',pants:'#3a3f4a',shoe:'#2a2a30'},
@@ -345,16 +378,16 @@ const HEROES=[
   feat:{hair:'long'},prop:'fists'},
 ];
 const ETYPES={
- gop: {build:'avg', hp:3,speed:60, windup:.5, atk:40,score:200,
+ gop: {build:'avg', hp:3,speed:60, windup:.5, atk:40,score:700,
    pal:{hair:'#26261e',skin:'#d9a570',shirt:'#2c3868',pants:'#2c3868',shoe:'#1a1a20',cap:'#1c1c22'},
    feat:{cap:'cap'},taunts:['Э','ОЙ БОЙ!','ЩЩС']},
- gop2:{build:'slim',hp:3,speed:78, windup:.42,atk:40,score:250,
+ gop2:{build:'slim',hp:3,speed:78, windup:.42,atk:40,score:900,
    pal:{hair:'#4a3520',skin:'#e0a878',shirt:'#6b4a2e',pants:'#3f4048',shoe:'#2a2a2e',cap:'#5a5a60'},
    feat:{cap:'beanie'},taunts:['Э','ОЙ БОЙ!','ЩЩС']},
- marg:{build:'slim',hp:3,speed:92, windup:.38,atk:40,score:300,
+ marg:{build:'slim',hp:3,speed:92, windup:.38,atk:40,score:1200,
    pal:{hair:'#33251a',skin:'#d9a06a',shirt:'#7a2a34',pants:'#26303f',shoe:'#1e1e24'},
    feat:{hair:'long'},taunts:['Э','ОЙ БОЙ!','ЩЩС']},
- cop: {build:'avg', hp:3,speed:108,windup:.34,atk:44,score:400,
+ cop: {build:'avg', hp:3,speed:108,windup:.34,atk:44,score:1600,
    pal:{hair:'#20201c',skin:'#e2ab7c',shirt:'#2c3a66',pants:'#263154',shoe:'#16161c',cap:'#181c30'},
    feat:{cap:'police'},club:true,taunts:['МОЛОДЫЕ ЛЮДИ','ПРОЙДЁМТЕ']},
 };
@@ -409,7 +442,6 @@ const cam={x:0};
 /* ---------------- ГЕНЕРАЦИЯ УРОВНЕЙ ---------------- */
 function buildLevel(i){
   const d=LEVELS[i],rng=mulberry(9137+i*101);
-  // уровни вдвое длиннее: растягиваем волны и добавляем промежуточные
   const len=d.len*2;
   const waves=[];
   d.waves.forEach((wv,i2)=>{
@@ -479,7 +511,6 @@ function buildLevel(i){
   for(let m=0;m<11;m++)L.manholes.push({x:260+rng()*(len-500)|0});
   for(let k=0;k<28;k++)L.cracks.push({x:120+rng()*(len-240)|0,y:212+rng()*48|0,l:6+rng()*12|0,a:rng()*6.28});
   for(let bi=0;bi<L.lamps.length-1;bi++)if(rng()<.3)L.birds.push({li:bi,t:.3+rng()*.4});
-  // джоинты
   for(let k=0;k<4;k++)L.joints.push({x:260+rng()*(len-520)|0,y:170+rng()*24|0,taken:false});
   return L;
 }
@@ -753,7 +784,6 @@ function drawBld(b,sx,L){
     g.fillStyle='rgba(0,0,0,.35)';rr(g,sx,top,b.w,2.4,1.2);g.fill();
     g.fillStyle='rgba(255,255,255,.15)';g.fillRect(sx+6,gr-6,b.w-12,2.4);
   }else if(b.t==='home'){
-    // двухэтажный дом с вывеской «СДАМ В АРЕНДУ!»
     g.fillStyle='#d8c2a0';rr(g,sx,top,b.w,116,2);g.fill();
     g.fillStyle='rgba(0,0,0,.1)';g.fillRect(sx,top,b.w,3);
     g.fillStyle='#8a3a30';
@@ -768,7 +798,6 @@ function drawBld(b,sx,L){
     g.lineTo(sx+b.w/2+26,top-2);g.closePath();g.fill();
     g.fillStyle='#7a5a48';rr(g,sx+b.w-34,top-28,10,16,2);g.fill();
     g.fillStyle='rgba(0,0,0,.3)';rr(g,sx+b.w-35,top-29,12,3,1.5);g.fill();
-    // второй этаж: три окна
     for(let k=0;k<3;k++){
       const wx=sx+14+k*30;
       g.fillStyle='rgba(232,192,96,.25)';rr(g,wx-2,top+14,26,22,3);g.fill();
@@ -778,12 +807,10 @@ function drawBld(b,sx,L){
       g.moveTo(wx,top+25);g.lineTo(wx+22,top+25);g.stroke();
       g.fillStyle='rgba(255,255,255,.5)';rr(g,wx+2,top+18,6,4,1.5);g.fill();
     }
-    // межэтажный пояс и вывеска
     g.fillStyle='rgba(0,0,0,.14)';g.fillRect(sx,top+44,b.w,3);
     g.fillStyle='#f4f0e2';rr(g,sx+14,top+50,102,15,3);g.fill();
     g.strokeStyle='#6a5a3a';g.lineWidth=1.4;rr(g,sx+14,top+50,102,15,3);g.stroke();
     txt('СДАМ В АРЕНДУ!',sx+65,top+58,'800 9px Rubik, sans-serif','#a03828');
-    // первый этаж: окно и дверь
     g.fillStyle='rgba(232,192,96,.25)';rr(g,sx+12,top+72,28,24,3);g.fill();
     g.fillStyle='#f8d878';rr(g,sx+14,top+74,24,20,2);g.fill();
     g.strokeStyle='#8a5a30';g.lineWidth=1.6;
@@ -829,7 +856,6 @@ function drawProp(pr,sx){
     rr(g,sx-2,pr.y-14,4,2.4,1.2);g.fill();
   }
 }
-/* джоинт на земле */
 function drawJoint(j,sx){
   g.fillStyle='rgba(150,230,150,.12)';
   el(g,sx,j.y,13,4);g.fill();
@@ -1007,28 +1033,81 @@ const SUPERPOSE={
   p.hB=q%2?{x:-7,y:-4}:{x:22,y:-5};p.crouch=.5;
  },
 };
+/* стратокастер: рога, датчики, лады, колки */
 function drawGuitar(c,bx,by,gx,gy){
   const ang=Math.atan2(gy-by,gx-bx),len=Math.hypot(gx-bx,gy-by);
   c.save();c.translate(bx,by);c.rotate(ang);
   c.lineCap='round';
-  c.strokeStyle='#241808';c.lineWidth=8.4;
-  c.beginPath();c.moveTo(2,0);c.lineTo(len,0);c.stroke();
-  c.strokeStyle='#4a3220';c.lineWidth=5;
-  c.beginPath();c.moveTo(2,0);c.lineTo(len,0);c.stroke();
-  c.fillStyle='#2a1c12';rr(c,len-3.4,-3.4,7,6.8,2);c.fill();
+  // гриф
+  c.strokeStyle='#241608';c.lineWidth=8.2;
+  c.beginPath();c.moveTo(2,0);c.lineTo(len-3,0);c.stroke();
+  c.strokeStyle='#6a4a2a';c.lineWidth=4.6;
+  c.beginPath();c.moveTo(2,0);c.lineTo(len-3,0);c.stroke();
+  c.strokeStyle='#9a7a4a';c.lineWidth=1.8;
+  c.beginPath();c.moveTo(4,-.6);c.lineTo(len-4,-.6);c.stroke();
+  // лады и маркеры
+  const frets=Math.max(3,Math.floor((len-10)/8));
+  c.strokeStyle='rgba(20,12,6,.55)';c.lineWidth=.9;
+  for(let i=1;i<=frets;i++){
+    const fx=4+i*(len-10)/frets;
+    c.beginPath();c.moveTo(fx,-2.6);c.lineTo(fx,2.6);c.stroke();
+    if(i%2===1&&i<frets){c.fillStyle='#e8e2ce';el(c,fx-2.6,0,.8,.8);c.fill();}
+  }
+  c.fillStyle='#e8e2ce';c.fillRect(3,-2.8,1.4,5.6); // порожек
+  // головка с колками
+  c.fillStyle='#2a1c12';rr(c,len-4,-3.8,8,7.6,2);c.fill();
   c.fillStyle='#c8c8cc';
-  el(c,len-1.4,-1.8,1,1);c.fill();el(c,len-1.4,1.8,1,1);c.fill();
-  c.strokeStyle='rgba(216,208,192,.8)';c.lineWidth=.8;
-  c.beginPath();c.moveTo(6,-1.4);c.lineTo(len-3,-1.4);
-  c.moveTo(6,1.4);c.lineTo(len-3,1.4);c.stroke();
+  for(let k=0;k<3;k++){
+    el(c,len-2,-2.4+k*2.4,1,1);c.fill();
+    el(c,len+2.6,-2.4+k*2.4,1,1);c.fill();
+  }
+  // корпус стратокастера
   c.fillStyle='#4e1a24';
-  el(c,0,0,10.4,9.6);c.fill();
+  c.beginPath();
+  c.moveTo(5,-8.2);
+  c.quadraticCurveTo(7,-11.4,10,-10.6);
+  c.quadraticCurveTo(16.5,-9,18.4,-2);
+  c.quadraticCurveTo(19.6,5.4,12,9);
+  c.quadraticCurveTo(4,11.4,-3,7.4);
+  c.quadraticCurveTo(-8.4,3.4,-6.4,-2.4);
+  c.quadraticCurveTo(-4.4,-7.4,1,-8.4);
+  c.quadraticCurveTo(2.4,-8.8,3.4,-7.6);
+  c.quadraticCurveTo(4.4,-6.4,6.2,-7.2);
+  c.closePath();c.fill();
   c.fillStyle='#7a1f2b';
-  el(c,0,0,9,8.4);c.fill();
-  el(c,-5,-3,4,5);c.fill();
-  c.fillStyle='#8e2a38';el(c,-1,-3,7,3);c.fill();
-  c.fillStyle='#d8d0c0';el(c,1,2,4,2.6);c.fill();
-  c.fillStyle='#c8c8cc';el(c,3,-2,1.4,1);c.fill();
+  c.beginPath();
+  c.moveTo(5,-7.4);
+  c.quadraticCurveTo(7,-10.2,9.6,-9.6);
+  c.quadraticCurveTo(15.6,-8,17.4,-1.8);
+  c.quadraticCurveTo(18.6,4.8,11.4,8.2);
+  c.quadraticCurveTo(4,10.4,-2.4,6.8);
+  c.quadraticCurveTo(-7,3,-5.4,-2);
+  c.quadraticCurveTo(-3.6,-6.4,1,-7.4);
+  c.closePath();c.fill();
+  c.fillStyle='#8e2a38';
+  c.beginPath();
+  c.moveTo(6,-7);
+  c.quadraticCurveTo(9,-9.2,10.4,-8.4);
+  c.quadraticCurveTo(15.2,-6.8,16.8,-1.4);
+  c.quadraticCurveTo(17,1,15.6,2.2);
+  c.lineTo(7,-4);
+  c.closePath();c.fill();
+  // три сингла, бридж, ручки
+  c.fillStyle='#d8d8d8';
+  rr(c,1,-3,2.8,6,.8);c.fill();
+  rr(c,5.4,-3,2.8,6,.8);c.fill();
+  rr(c,9.8,-3,2.8,6,.8);c.fill();
+  c.fillStyle='#c8c8cc';rr(c,13.4,-3.4,3.4,7,1);c.fill();
+  c.fillStyle='#d8d8d8';
+  el(c,-2.4,4.4,1.3,1.3);c.fill();
+  el(c,-2.4,7,1.1,1.1);c.fill();
+  // струны
+  c.strokeStyle='rgba(220,220,225,.85)';c.lineWidth=.7;
+  c.beginPath();
+  c.moveTo(4,-1.6);c.lineTo(len-4,-1.6);
+  c.moveTo(4,0);c.lineTo(len-4,0);
+  c.moveTo(4,1.6);c.lineTo(len-4,1.6);
+  c.stroke();
   c.restore();
 }
 const SUPERDRAW={
@@ -1095,7 +1174,7 @@ function drawFighter(c,o){
       else{p.lean=4;p.hF={x:14,y:1};}
       break;
     }
-    case 'kick':{ // нога бьёт в грудь
+    case 'kick':{
       const q=Math.min(1,T/(o.dur||.44));
       if(q<.25){p.lean=2;p.fF={x:-11,y:0};p.crouch=.4;}
       else if(q<.6){p.lean=-11;p.fF={x:28,y:-33};p.crouch=.15;p.hF={x:-7,y:-8};p.hB={x:-13,y:-6};}
@@ -1129,13 +1208,7 @@ function drawFighter(c,o){
   const shY=hipY-B.torso+bob*.5;
   const shX=p.lean;
   if(o.prop==='guitar'&&st!=='super'){
-    c.strokeStyle='#241608';c.lineWidth=5.6;c.lineCap='round';
-    c.beginPath();c.moveTo(-5,hipY-8);c.lineTo(shX-13,shY-6);c.stroke();
-    c.strokeStyle='#3a2a1a';c.lineWidth=3;
-    c.beginPath();c.moveTo(-5,hipY-8);c.lineTo(shX-13,shY-6);c.stroke();
-    c.fillStyle='#4e1a24';el(c,-8,hipY-6,8,7.4);c.fill();
-    c.fillStyle='#7a1f2b';el(c,-8,hipY-6,6.8,6.2);c.fill();
-    c.fillStyle='#d8d0c0';el(c,-8,hipY-4,3,2);c.fill();
+    drawGuitar(c,-6,hipY-6,shX-14,shY-7);
   }
   let sh={x:shX-2,y:shY+2},hd={x:shX+p.hB.x,y:shY+p.hB.y};
   let elb={x:(sh.x+hd.x)/2,y:(sh.y+hd.y)/2+p.bB};
@@ -1204,11 +1277,13 @@ function drawFighter(c,o){
   if(st==='super'&&SUPERDRAW[o.prop])SUPERDRAW[o.prop](c,o,p,{shX,shY,hipY});
   c.restore();
 }
+/* гончая: big=true — большая собака Димона с оскалом */
 function drawDogEnt(d,sx){
   g.save();
   g.translate(Math.round(sx),Math.round(d.y));
   if(d.alpha<1)g.globalAlpha=d.alpha;
-  g.scale(d.dir,1);
+  const s=d.big?1.9:1;
+  g.scale(d.dir*s,s);
   const ph=d.phase,run=d.state!=='sit';
   const bob=run?Math.abs(Math.sin(ph))*2.2:0;
   g.strokeStyle='#4a2810';g.lineWidth=3.6;g.lineCap='round';
@@ -1244,6 +1319,21 @@ function drawDogEnt(d,sx){
   g.quadraticCurveTo(15,-12-bob,17.4,-9-bob);
   g.quadraticCurveTo(19,-13-bob,18,-18-bob);
   g.closePath();g.fill();
+  // оскал большой гончей
+  if(d.big&&run){
+    g.fillStyle='#5a1010';
+    g.beginPath();
+    g.moveTo(18,-13-bob);g.lineTo(28,-12-bob);g.lineTo(24,-4-bob);
+    g.closePath();g.fill();
+    g.fillStyle='#fff';
+    for(let k=0;k<4;k++){
+      g.beginPath();
+      g.moveTo(19.5+k*2.4,-12.2-bob);
+      g.lineTo(20.7+k*2.4,-9.6-bob);
+      g.lineTo(21.9+k*2.4,-12.2-bob);
+      g.closePath();g.fill();
+    }
+  }
   g.restore();
 }
 function drawCatEnt(k,sx){
@@ -1333,14 +1423,14 @@ function damageEnemy(e,dmg,dir,kb){
 function killEnemy(e,dir,power){
   e.state='fly';e.stateT=0;e.z=6;e.vz=200+90*power;e.vx=dir*(140+80*power);
   G.score+=e.def.score;
-  addPop(e.x,e.footY-84,'+'+e.def.score);
+  addPop(e.x,e.footY-84,'+'+e.def.score+' ₸');
   spark(e.x,e.footY-44,10,'#fff0a0',90);
   AU.fall();G.shake=Math.max(G.shake,4);
 }
 function hurtPlayer(dir){
   const p=G.player;
   if(p.iframes>0||p.state==='super'||p.state==='down')return;
-  if(G.jointT>0)return; // неуязвимость от джоинта
+  if(G.jointT>0)return;
   p.hp--;p.meter=Math.min(100,p.meter+16);
   AU.hurt();G.shake=Math.max(G.shake,3);G.combo=0;
   spark(p.x,p.footY-48,4,'#ff9060',50);
@@ -1382,8 +1472,9 @@ function startSuper(){
   addQuip(p.hero.quips[(Math.random()*p.hero.quips.length)|0],p.x,p.footY-118);
 }
 function spawnDog(p){
-  G.dog={x:p.x-p.dir*40,y:p.footY,dir:p.dir,phase:0,state:'run',
-    target:nearestEnemy(p,420),alpha:1,sitT:0};
+  G.dog={x:p.x-p.dir*56,y:p.footY,dir:p.dir,phase:0,state:'run',big:true,
+    target:nearestEnemy(p,460),alpha:1,sitT:0};
+  AU.barkBig();
 }
 const SUPERS={
  guitar(p,dt){
@@ -1397,7 +1488,7 @@ const SUPERS={
  },
  dog(p,dt){
   if(!p.sPh&&p.stateT>=.22){p.sPh=1;spawnDog(p);}
-  if(p.stateT>=1.5)endSuper(p);
+  if(p.stateT>=1.7)endSuper(p);
  },
  fists(p,dt){
   if(!p.sPh&&p.stateT>=.14){
@@ -1519,30 +1610,30 @@ function updateEnemy(e,dt){
 }
 function updateDog(dt){
   const d=G.dog;if(!d)return;
-  d.phase+=dt*18;
+  d.phase+=dt*(d.big?16:18);
   const p=G.player;
   if(d.state==='run'){
     if(!d.target||['fly','lying','out'].includes(d.target.state))
-      d.target=nearestEnemy(p,440);
-    const tx=d.target?d.target.x:p.x+p.dir*150;
+      d.target=nearestEnemy(p,460);
+    const tx=d.target?d.target.x:p.x+p.dir*(d.big?160:150);
     const ty=d.target?d.target.y:p.footY;
     d.dir=tx>d.x?1:-1;
     const dx=tx-d.x,dy=ty-d.y,nn=Math.hypot(dx,dy)||1;
     d.x+=dx/nn*460*dt;d.y+=dy/nn*350*dt;
-    if(d.target&&nn<26){
-      killEnemy(d.target,d.dir,2.3);AU.bark();
-      spark(d.x,d.y-16,8,'#ffd870',90);
+    if(d.target&&nn<30){
+      killEnemy(d.target,d.dir,2.6);
+      spark(d.x,d.y-24,10,'#ffd870',100);
       d.state='back';
-    }else if(!d.target&&nn<20)d.state='back';
+    }else if(!d.target&&nn<24)d.state='back';
   }else if(d.state==='back'){
-    const tx=p.x-p.dir*26,ty=p.footY;
+    const tx=p.x-p.dir*(d.big?34:26),ty=p.footY;
     d.dir=tx>d.x?1:-1;
     const dx=tx-d.x,dy=ty-d.y,nn=Math.hypot(dx,dy)||1;
     d.x+=dx/nn*460*dt;d.y+=dy/nn*350*dt;
-    if(nn<24){d.state='sit';d.sitT=0;}
+    if(nn<(d.big?34:24)){d.state='sit';d.sitT=0;}
   }else if(d.state==='sit'){
     d.sitT+=dt;d.dir=p.dir;
-    if(d.sitT>.5){d.alpha-=dt*2;if(d.alpha<=0)G.dog=null;}
+    if(d.sitT>(d.big?.7:.5)){d.alpha-=dt*2;if(d.alpha<=0)G.dog=null;}
   }
 }
 function updateCat(dt){
@@ -1590,7 +1681,6 @@ function updatePlay(dt){
     if(G.enemies[i].dead)G.enemies.splice(i,1);
   }
   updateDog(dt);updateCat(dt);
-  // джоинты: подбор
   for(const j of G.lv.joints){
     if(j.taken)continue;
     if(Math.abs(p.x-j.x)<18&&Math.abs(p.footY-j.y)<18){
@@ -1600,7 +1690,6 @@ function updatePlay(dt){
       AU.set('reggi');
     }
   }
-  // действие джоинта
   if(G.jointT>0){
     G.jointT-=dt;
     if(G.jointT<=0){G.jointT=0;AU.set(levelMusic());}
@@ -1649,7 +1738,7 @@ function updatePlay(dt){
   }
   if(!G.waveActive&&G.waveIdx>=G.lv.waves.length&&p.x>G.lv.len-96){
     if(G.lv.home){G.state='win';AU.set(null);AU.jing(true);G.smokeT=0;}
-    else{G.state='clear';G.score+=500*(G.level+1);AU.set(null);AU.jing(true);}
+    else{G.state='clear';G.score+=1000*(G.level+1);AU.set(null);AU.jing(true);}
   }
 }
 
@@ -1670,7 +1759,6 @@ function drawEnemy(e,sx){
 function drawPlayerEnt(p){
   const sx=p.x-cam.x;
   drawShadow(sx,p.footY,p.z);
-  // аура джоинта
   if(G.jointT>0){
     const a=.10+.07*Math.sin(G.time*7);
     g.fillStyle=`rgba(120,230,140,${a.toFixed(3)})`;
@@ -1734,11 +1822,15 @@ function renderWorld(){
   }
   levelTint(G.lv);
   vignette();
+  // реплики: не выше HUD и не за краями экрана
   for(const q of G.quips){
     const s=Math.min(1,q.t*8);
     const jx=q.t<.9?(Math.random()*2-1)*1.6:0;
+    const half=q.size>=18?146:70;
+    const qx=clamp(Math.round(q.x-cam.x+jx),half+4,W-half-4);
+    const qy=Math.max(70,Math.round(q.y-q.t*10));
     g.save();
-    g.translate(Math.round(q.x-cam.x+jx),Math.round(q.y-q.t*10));
+    g.translate(qx,qy);
     g.scale(s,s);
     txt(q.txt,0,0,`900 ${q.size}px Rubik, sans-serif`,q.col,'center','middle',
       Math.max(3,q.size*.3));
@@ -1783,13 +1875,20 @@ function drawHUD(){
     drawHead(g,0,0,8,h.pal,h.feat,false);
     g.restore();
   }
-  g.fillStyle='rgba(10,10,16,.82)';rr(g,W-142,4,138,58,6);g.fill();
+  // правая панель: тенге и прогресс к аренде
+  g.fillStyle='rgba(10,10,16,.82)';rr(g,W-142,4,138,62,6);g.fill();
   g.strokeStyle='rgba(120,120,150,.5)';
-  rr(g,W-142,4,138,58,6);g.stroke();
-  txt('ОЧКИ',W-134,14,'700 12px Rubik, sans-serif','#8a8a99','left','middle');
-  txt(String(G.score).padStart(6,'0'),W-10,14,'800 13px Rubik, sans-serif','#e8e8f0','right','middle');
+  rr(g,W-142,4,138,62,6);g.stroke();
+  txt('ТЕНГЕ',W-134,14,'700 12px Rubik, sans-serif','#8a8a99','left','middle');
+  txt(fmtT(G.score)+' ₸',W-10,14,'800 13px Rubik, sans-serif','#ffe060','right','middle');
   txt('РАЙОН '+(G.level+1)+'/6',W-10,29,'800 13px Rubik, sans-serif','#c8c8d4','right','middle');
-  txt(G.waveActive?'ВРАГИ: '+G.enemies.length:'ВПЕРЕД',W-10,45,'800 13px Rubik, sans-serif',
+  g.fillStyle='rgba(42,42,54,.9)';rr(g,W-134,38,124,6,3);g.fill();
+  const pr2=Math.min(1,G.score/RENT);
+  g.fillStyle=G.score>=RENT?'#58c830':'#d8c030';
+  rr(g,W-133,39,Math.max(2,122*pr2),4,2);g.fill();
+  txt(G.score>=RENT?'ДОМ СНЯТ':'ЦЕЛЬ 150К',W-134,52,'700 11px Rubik, sans-serif',
+    G.score>=RENT?'#58c830':'#8a8a99','left','middle');
+  txt(G.waveActive?'ВРАГИ: '+G.enemies.length:'ВПЕРЕД',W-10,52,'800 12px Rubik, sans-serif',
     G.waveActive?'#ff9060':'#58c830','right','middle');
   if(G.jointT>0)
     txt('НЕУЯЗВИМ '+(G.jointT+.5|0)+'с',W/2,H-28,'800 16px Rubik, sans-serif','#6ee87a','center','middle',4);
@@ -1876,7 +1975,6 @@ function renderTitle(){
     const px=((c.x-G.time*3)%560+560)%560-40;
     drawCloud(px,c.y,c.w,false);
   }
-  // солнце и лучи
   const sx=372,sy=60,r=17;
   g.fillStyle='rgba(248,216,120,.06)';
   for(let k=-2;k<=2;k++){
@@ -1901,10 +1999,8 @@ function renderTitle(){
     g.quadraticCurveTo(bx+1,by,bx+4,by+f);
     g.stroke();
   }
-  // Алатау: два хребта
   drawRange(170,301,'rgba(90,74,104,.75)','rgba(238,224,238,.8)',58);
   drawRange(176,703,'rgba(52,42,66,.95)','#f0e4ee',44);
-  // город: панельки + телебашня
   g.fillStyle='#241a30';
   for(const hh of ts.houses)g.fillRect(hh.x,178-hh.h,hh.w,hh.h);
   g.fillStyle='#3a2a44';
@@ -1914,7 +2010,6 @@ function renderTitle(){
         if((wx*13+wy*7)%11<2)g.fillRect(wx,wy,2.4,3);
   }
   drawTower(240,178);
-  // площадь
   if(!G._tlnd){
     const gr=g.createLinearGradient(0,178,0,196);
     gr.addColorStop(0,'#2e2a3a');gr.addColorStop(1,'#262230');
@@ -1935,8 +2030,7 @@ function renderTitle(){
     pal:HEROES[0].pal,build:HEROES[0].build,feat:HEROES[0].feat,
     prop:HEROES[0].prop,dur:.3,scale:2});
   drawGuitar(g,288,198,240,136);
-  drawDogEnt({x:198,y:252,dir:1,phase:G.time*2,state:'sit',alpha:1},198);
-  // логотип
+  drawDogEnt({x:196,y:252,dir:1,phase:G.time*2,state:'sit',alpha:1},196);
   txt('АЛМАТА НАХУЙ',W/2+3,73,'900 40px Rubik, sans-serif','rgba(138,32,32,.75)','center','middle');
   txt('АЛМАТА НАХУЙ',W/2,69,'900 40px Rubik, sans-serif','#f0e8d0','center','middle',8);
   g.fillStyle='#c83030';rr(g,W/2-128,98,256,3.4,1.7);g.fill();
@@ -1944,7 +2038,7 @@ function renderTitle(){
   if(G.time%1.2<.75)
     txt(isCoarse?'PRESS START':'PRESS ENTER',W/2,144,
       '900 24px Rubik, sans-serif','#ffe060','center','middle',6);
-  txt('© ПЕРВЫЙ РАЙОН 2026 · АЛМАТА',W/2,262,'500 12px Rubik, sans-serif','#a89878');
+  txt('© ПЕРВЫЙ РАЙОН 1991 · АЛМАТА',W/2,262,'500 12px Rubik, sans-serif','#a89878');
   vignette();
 }
 function renderSelect(){
@@ -1967,31 +2061,34 @@ function renderSelect(){
   }
   txt('ПОСЛЕ СМЕНЫ — ПОЛНЫЙ ЛАЙФБАР',250,196,'500 11px Rubik, sans-serif','#5a5a68','left','middle');
   if(G.time%1.2<.75)
-    txt('ENTER — ВЫБРАТЬ',W/2,H-18,'900 17px Rubik, sans-serif','#ffe060','center','middle',5);
+    txt(EN+' — ВЫБРАТЬ',W/2,H-18,'900 17px Rubik, sans-serif','#ffe060','center','middle',5);
   vignette();
 }
 function renderBanner(){
   renderWorld();
   g.fillStyle='rgba(0,0,0,.55)';g.fillRect(0,0,W,H);
-  txt('РАЙОН '+(G.level+1),W/2,104,'900 30px Rubik, sans-serif','#f0e8d0','center','middle',7);
-  txt(G.lv.name,W/2,134,'900 26px Rubik, sans-serif','#ffe060','center','middle',6);
-  txt('ДОБЕРИСЬ ДО ДОМА И ИДИ ВПРАВО',W/2,166,'700 12px Rubik, sans-serif','#a8a8b8','center','middle');
+  txt('РАЙОН '+(G.level+1),W/2,98,'900 30px Rubik, sans-serif','#f0e8d0','center','middle',7);
+  txt(G.lv.name,W/2,128,'900 26px Rubik, sans-serif','#ffe060','center','middle',6);
+  txt('ДОБЕРИСЬ ДО ДОМА И ИДИ ВПРАВО',W/2,158,'700 12px Rubik, sans-serif','#a8a8b8','center','middle');
+  if(G.level===0)
+    txt('НАБЕРИ 150 000 ₸ НА АРЕНДУ ДОМА',W/2,180,'800 13px Rubik, sans-serif','#6ee87a','center','middle',4);
 }
 function renderClear(){
   renderWorld();
   g.fillStyle='rgba(0,0,0,.55)';g.fillRect(0,0,W,H);
-  txt('РАЙОН ПРОЙДЕН',W/2,98,'900 30px Rubik, sans-serif','#58c830','center','middle',7);
-  txt('ОЧКИ: '+G.score,W/2,134,'800 21px Rubik, sans-serif','#e8e8f0','center','middle',5);
-  txt('ОСТАЛОСЬ РАЙОНОВ: '+(5-G.level),W/2,160,'700 13px Rubik, sans-serif','#a8a8b8','center','middle');
+  txt('РАЙОН ПРОЙДЕН',W/2,92,'900 30px Rubik, sans-serif','#58c830','center','middle',7);
+  txt('БОНУС РАЙОНА: +'+fmtT(1000*(G.level+1))+' ₸',W/2,124,'800 15px Rubik, sans-serif','#6ee87a','center','middle',4);
+  txt('КАПИТАЛ: '+fmtT(G.score)+' ₸',W/2,148,'800 21px Rubik, sans-serif','#ffe060','center','middle',5);
+  txt('ОСТАЛОСЬ РАЙОНОВ: '+(5-G.level),W/2,174,'700 13px Rubik, sans-serif','#a8a8b8','center','middle');
   if(G.time%1.2<.75)
-    txt('ENTER — ДАЛЬШЕ',W/2,190,'900 17px Rubik, sans-serif','#ffe060','center','middle',5);
+    txt(EN+' — ДАЛЬШЕ',W/2,202,'900 17px Rubik, sans-serif','#ffe060','center','middle',5);
 }
 function renderGameOver(){
   g.fillStyle='#0a0a10';g.fillRect(0,0,W,H);
   txt('ИГРА ОКОНЧЕНА',W/2,90,'900 38px Rubik, sans-serif','#d83030','center','middle',9);
-  txt('ОЧКИ: '+G.score,W/2,146,'800 21px Rubik, sans-serif','#c8c8d4','center','middle',5);
+  txt('КАПИТАЛ: '+fmtT(G.score)+' ₸',W/2,146,'800 21px Rubik, sans-serif','#c8c8d4','center','middle',5);
   if(G.time%1.2<.75)
-    txt('ENTER — ПРОДОЛЖИТЬ',W/2,186,'900 17px Rubik, sans-serif','#ffe060','center','middle',5);
+    txt(EN+' — ПРОДОЛЖИТЬ',W/2,186,'900 17px Rubik, sans-serif','#ffe060','center','middle',5);
 }
 function renderWin(){
   const L=G.lv,camw=L.len-W-10;
@@ -2007,20 +2104,25 @@ function renderWin(){
     drawFighter(g,{x:70+i*58,y:206,dir:1,state:'idle',t:G.time+i*.6,
       pal:h.pal,build:h.build,feat:h.feat,prop:h.prop,dur:.3,scale:1});
   }
-  drawDogEnt({x:292,y:206,dir:1,phase:G.time*2,state:'sit',alpha:1},292);
+  drawDogEnt({x:292,y:206,dir:1,phase:G.time*2,state:'sit',alpha:1,big:true},292);
   levelTint(L);
   vignette();
   txt('ВЫ ДОМА!',W/2,58,'900 40px Rubik, sans-serif','#ffe060','center','middle',9);
-  txt('ШЕСТЬ РАЙОНОВ ПРОЙДЕНЫ · ДОМ СДАН В АРЕНДУ',W/2,104,'700 12px Rubik, sans-serif','#c8c0a8','center','middle');
-  txt('ОЧКИ: '+G.score,W/2,124,'800 21px Rubik, sans-serif','#e8e8f0','center','middle',5);
+  if(G.score>=RENT){
+    txt('АРЕНДА ОПЛАЧЕНА: 150 000 ₸',W/2,104,'800 15px Rubik, sans-serif','#6ee87a','center','middle',4);
+    txt('ОСТАЛОСЬ: '+fmtT(G.score-RENT)+' ₸',W/2,126,'800 21px Rubik, sans-serif','#e8e8f0','center','middle',5);
+  }else{
+    txt('НА АРЕНДУ НАБРАНО: '+fmtT(G.score)+' ₸ ИЗ 150 000',W/2,110,'800 15px Rubik, sans-serif','#d8c030','center','middle',4);
+  }
   if(G.time%1.2<.75)
-    txt('ENTER — В НАЧАЛО',W/2,156,'900 17px Rubik, sans-serif','#f0e8d0','center','middle',5);
+    txt(EN+' — В НАЧАЛО',W/2,160,'900 17px Rubik, sans-serif','#f0e8d0','center','middle',5);
 }
 function renderPause(){
   renderWorld();drawHUD();
   g.fillStyle='rgba(0,0,0,.6)';g.fillRect(0,0,W,H);
   txt('ПАУЗА',W/2,116,'900 38px Rubik, sans-serif','#f0e8d0','center','middle',9);
-  txt('ENTER — ПРОДОЛЖИТЬ · M — ЗВУК',W/2,158,'700 13px Rubik, sans-serif','#a8a8b8','center','middle');
+  txt(isCoarse?EN+' — ПРОДОЛЖИТЬ':EN+' — ПРОДОЛЖИТЬ · M — ЗВУК',W/2,158,
+    '700 13px Rubik, sans-serif','#a8a8b8','center','middle');
 }
 function render(){
   const S=cv.__S||1;
