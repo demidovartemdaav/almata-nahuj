@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>АЛМАТА НАХУЙ — уличный beat'em'up</title>
 <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@500;700;800;900&display=swap" rel="stylesheet">
 <style>
@@ -84,10 +85,13 @@
   #loader.ready .bar{opacity:.3}
   #ldFs{padding:14px 36px;background:#b03028;border:2px solid #301010;color:#ffe060;
     border-radius:12px;font:800 16px Rubik,sans-serif;letter-spacing:1px;
-    box-shadow:0 0 20px rgba(230,60,45,.55),inset 0 3px 0 rgba(255,255,255,.15)}
+    box-shadow:0 0 20px rgba(230,60,45,.55),inset 0 3px 0 rgba(255,255,255,.15);
+    pointer-events:auto}
   #ldFs:active{transform:scale(.95)}
   #ldWin{background:none;border:none;color:#8a8a99;font:500 13px Rubik,sans-serif;
     text-decoration:underline;pointer-events:auto}
+  #fsHint{display:none;color:#8a8a99;font-size:11.5px;max-width:280px;
+    text-align:center;line-height:1.55}
   #rotate{display:none;position:fixed;inset:0;background:#08080d;z-index:100;
     flex-direction:column;align-items:center;justify-content:center;gap:26px}
   #rotate .ph{width:44px;height:82px;border:3px solid #c8c8d4;border-radius:8px;
@@ -126,6 +130,7 @@
     <button id="ldFs">НА ВЕСЬ ЭКРАН</button>
     <button id="ldWin">играть в окне</button>
   </div>
+  <div id="fsHint"></div>
 </div>
 <div id="rotate"><div class="ph"></div><div class="txt">ПОВЕРНИ ТЕЛЕФОН</div></div>
 
@@ -156,27 +161,58 @@ if(document.fonts&&document.fonts.load)
   ['500 12px Rubik','700 12px Rubik','800 13px Rubik','900 22px Rubik','900 58px Rubik']
   .forEach(f=>document.fonts.load(f));
 
-function tryFS(){
-  const el=document.documentElement;
-  if(document.fullscreenElement||document.webkitFullscreenElement)return;
-  const fn=el.requestFullscreen||el.webkitRequestFullscreen;
-  if(!fn)return;
-  try{ fn.call(el); }catch(e){}
+/* ---------- полный экран ----------
+   tryFS вызывается только из настоящих жестов (click / touchend / keydown):
+   pointerdown в мобильных WebKit не даёт user activation, и запрос
+   requestFullscreen из него молча отклоняется — это и было причиной,
+   почему экран «не разворачивался». */
+function fsSupported(){
+  return !!(document.documentElement.requestFullscreen||
+            document.documentElement.webkitRequestFullscreen);
 }
-addEventListener('pointerdown',()=>{AU.init();tryFS();},{passive:true});
+function tryFS(cb){
+  const el=document.documentElement;
+  if(document.fullscreenElement||document.webkitFullscreenElement){cb&&cb(true);return;}
+  const fn=el.requestFullscreen||el.webkitRequestFullscreen;
+  if(!fn){cb&&cb(false);return;}
+  try{
+    const r=fn.call(el);
+    if(r&&r.then)
+      r.then(()=>cb&&cb(true)).catch(()=>cb&&cb(false));
+    else
+      setTimeout(()=>cb&&cb(!!(document.fullscreenElement||document.webkitFullscreenElement)),400);
+  }catch(e){cb&&cb(false);}
+}
+addEventListener('pointerdown',()=>{AU.init();},{passive:true});
+['click','touchend'].forEach(ev=>
+  addEventListener(ev,()=>{AU.init();tryFS();},{passive:true}));
 addEventListener('keydown',()=>{AU.init();tryFS();});
 
+/* ---------- прелоадер ---------- */
 (function(){
   const loader=document.getElementById('loader');
   if(!isCoarse){loader.style.display='none';return;}
-  setTimeout(()=>loader.classList.add('ready'),1200);
-  const go=()=>{loader.style.display='none';AU.init();};
-  document.getElementById('ldFs').addEventListener('pointerdown',e=>{
-    e.preventDefault();tryFS();go();
+  const ldFs=document.getElementById('ldFs');
+  const ldWin=document.getElementById('ldWin');
+  const fsHint=document.getElementById('fsHint');
+  const start=()=>{loader.style.display='none';AU.init();};
+  setTimeout(()=>{
+    loader.classList.add('ready');
+    if(!fsSupported()){
+      // iPhone: Fullscreen API отсутствует — сразу честный режим
+      ldFs.textContent='ИГРАТЬ';
+      ldWin.style.display='none';
+      fsHint.style.display='block';
+      fsHint.innerHTML='Полноэкранный режим недоступен в этом браузере.<br>'+
+        'На iPhone: «Поделиться» → «На экран Домой» —<br>игра откроется без панелей браузера.';
+    }
+  },1200);
+  ldFs.addEventListener('click',()=>{
+    AU.init();
+    if(!fsSupported()){start();return;}
+    tryFS(()=>start());
   });
-  document.getElementById('ldWin').addEventListener('pointerdown',e=>{
-    e.preventDefault();go();
-  });
+  ldWin.addEventListener('click',()=>{AU.init();start();});
 })();
 
 function syncBody(){
@@ -237,7 +273,7 @@ function levelMusic(){return G.level>=3&&G.level<5?'tense':'game';}
 function drawNote(px,py,col,alpha){
   g.globalAlpha=alpha;
   g.fillStyle=col;g.strokeStyle=col;g.lineWidth=1.3;g.lineCap='round';
-  el(g,px,py,2.6,1.9);g.rotate(-.3);g.fill();g.rotate(.3);
+  el(g,px,py,2.6,1.9);g.fill();
   g.beginPath();g.moveTo(px+2.3,py-.5);g.lineTo(px+2.3,py-7);g.stroke();
   g.beginPath();
   g.moveTo(px+2.3,py-7);g.lineTo(px+6.2,py-5.6);g.lineTo(px+2.3,py-4.6);
@@ -511,7 +547,6 @@ function buildLevel(i){
     else L.props.push({x:px,t:'hyd',y:160});
   }
   for(let k=0;k<20;k++)L.bushes.push({x:80+rng()*(len-160)|0});
-  // движущийся трафик: дальняя полоса влево, ближняя вправо
   const nCars=9+(rng()*4|0);
   for(let k=0;k<nCars;k++){
     const lane=rng()<.5?0:1;
@@ -885,7 +920,6 @@ function drawJoint(j,sx){
   g.fillStyle='rgba(200,204,216,.3)';
   el(g,sx+8+Math.sin(t*.7)*2,j.y-14,2.4,2.4);g.fill();
 }
-/* движущиеся машины: ближняя полоса вправо, дальняя влево */
 function drawCar(car,sx){
   const y=car.lane?224:258;
   const s=car.lane?.72:1;
@@ -1036,14 +1070,13 @@ const SUPERPOSE={
   else if(T<.75){p.hF={x:24,y:-4};p.hB={x:14,y:-5};p.lean=13;p.crouch=.3;}
   else{p.hF={x:18,y:0};p.lean=9;p.crouch=.3;}
  },
- dog(p){p.hF={x:7,y:-13};p.lean=3;p.hB={x:-8,y:0};}, // подзыв со свистом
+ dog(p){p.hF={x:7,y:-13};p.lean=3;p.hB={x:-8,y:0};},
  fists(p,T){
   const q=Math.floor(T*12);
   p.hF=q%2?{x:27,y:-4}:{x:27,y:-11};p.bF=0;p.lean=11;
   p.hB=q%2?{x:-7,y:-4}:{x:22,y:-5};p.crouch=.5;
  },
 };
-/* стратокастер: рогатый корпус, 3 сингла, лады, колки */
 function drawGuitar(c,bx,by,gx,gy){
   const ang=Math.atan2(gy-by,gx-bx),len=Math.hypot(gx-bx,gy-by);
   c.save();c.translate(bx,by);c.rotate(ang);
@@ -1098,12 +1131,10 @@ function drawGuitar(c,bx,by,gx,gy){
   c.quadraticCurveTo(17,1,15.6,2.2);
   c.lineTo(7,-4);
   c.closePath();c.fill();
-  // ровно три сингла
   c.fillStyle='#d8d8d8';
   rr(c,1,-3,2.8,6,.8);c.fill();
   rr(c,5.4,-3,2.8,6,.8);c.fill();
   rr(c,9.8,-3,2.8,6,.8);c.fill();
-  // тёмный бридж (не датчик) и ручки
   c.fillStyle='#2a2a32';rr(c,13.6,-3.2,3.2,6.4,1);c.fill();
   c.fillStyle='#d8d8d8';
   el(c,-2.4,4.4,1.3,1.3);c.fill();
@@ -1116,7 +1147,6 @@ function drawGuitar(c,bx,by,gx,gy){
   c.stroke();
   c.restore();
 }
-/* бас Сани: один рог, 2 датчика, 4 струны */
 function drawBass(c,bx,by,gx,gy){
   const ang=Math.atan2(gy-by,gx-bx),len=Math.hypot(gx-bx,gy-by);
   c.save();c.translate(bx,by);c.rotate(ang);
@@ -1254,10 +1284,6 @@ function drawFighter(c,o){
     case 'hurt':{p.lean=-11;p.hF={x:-5,y:-11};p.hB={x:-13,y:-7};p.fF={x:13};p.fB={x:-11};break;}
     case 'fly':{p.lean=-16;p.hF={x:-9,y:-16};p.hB={x:-14,y:-11};p.fF={x:20,y:-11};p.fB={x:13,y:-6};break;}
     case 'down': case 'lying': case 'out': lying=true;break;
-    case 'poster':{
-      p.fF={x:13};p.fB={x:-13};p.hF={x:22,y:24};p.hB={x:-16,y:-14};p.lean=3;break;
-    }
-    /* позы финальной сцены */
     case 'guitarPlay':{
       p.fF={x:11};p.fB={x:-9};
       p.hF={x:13+Math.sin(t*8)*2,y:2};
@@ -1374,7 +1400,6 @@ function drawFighter(c,o){
   if(st==='super'&&SUPERDRAW[o.prop])SUPERDRAW[o.prop](c,o,p,{shX,shY,hipY});
   c.restore();
 }
-/* гончая: big — большая собака Димона с оскалом; wag — виляет хвостом */
 function drawDogEnt(d,sx){
   g.save();
   g.translate(Math.round(sx),Math.round(d.y));
@@ -1569,7 +1594,6 @@ function startSuper(){
   addQuip(p.hero.quips[(Math.random()*p.hero.quips.length)|0],p.x,p.footY-118);
 }
 function spawnDog(p){
-  // собака сама наносит урон — Димон только свистит
   G.dog={x:p.x-p.dir*56,y:p.footY,dir:p.dir,phase:0,state:'run',big:true,
     target:null,alpha:1,sitT:0};
   AU.whistle();
@@ -1722,7 +1746,7 @@ function updateDog(dt){
       killEnemy(d.target,d.dir,2.6);
       AU.barkBig();
       spark(d.x,d.y-24,10,'#ffd870',100);
-      d.target=null; // ищет следующую жертву
+      d.target=null;
     }else if(!d.target&&nn<24)d.state='back';
   }else if(d.state==='back'){
     const tx=p.x-p.dir*34,ty=p.footY;
@@ -1780,7 +1804,6 @@ function updatePlay(dt){
     if(G.enemies[i].dead)G.enemies.splice(i,1);
   }
   updateDog(dt);updateCat(dt);
-  // трафик
   for(const car of G.lv.cars){
     car.x+=car.sp*car.dir*dt;
     if(car.dir>0&&car.x>G.lv.len+90)car.x=-90;
@@ -2006,7 +2029,6 @@ function drawHUD(){
     g.fillRect(W-58,143.4,12,5.2);
   }
 }
-/* ---- титул: Алмата ---- */
 function drawRange(baseY,seed,col,snow,amp){
   const rng=mulberry(seed);
   const peaks=[];
@@ -2188,23 +2210,18 @@ function renderGameOver(){
   if(G.time%1.2<.75)
     txt(EN+' — ПРОДОЛЖИТЬ',W/2,186,'900 17px Rubik, sans-serif','#ffe060','center','middle',5);
 }
-/* финал: живая сцена у дома */
 function renderWin(){
   const L=G.lv,camw=L.len-W-10;
   drawBG(L,camw);
-  // Владимир играет на стратокастере
   drawFighter(g,{x:70,y:206,dir:1,state:'guitarPlay',t:G.time,
     pal:HEROES[0].pal,build:HEROES[0].build,feat:HEROES[0].feat,prop:'guitar',dur:.3,scale:1});
   drawGuitar(g,80,182,116,148);
-  // Саня играет на басу
   drawFighter(g,{x:124,y:206,dir:1,state:'bassPlay',t:G.time,
     pal:HEROES[1].pal,build:HEROES[1].build,feat:HEROES[1].feat,prop:'tree',dur:.3,scale:1});
   drawBass(g,134,182,174,144);
-  // Димон гладит гончую
   drawFighter(g,{x:182,y:206,dir:1,state:'pet',t:G.time,
     pal:HEROES[2].pal,build:HEROES[2].build,feat:HEROES[2].feat,prop:'dog',dur:.3,scale:1});
   drawDogEnt({x:212,y:206,dir:1,phase:0,state:'sit',alpha:1,big:true,wag:true},212);
-  // Ера читает рэп
   drawFighter(g,{x:250,y:206,dir:1,state:'rap',t:G.time,
     pal:HEROES[3].pal,build:HEROES[3].build,feat:HEROES[3].feat,prop:'fists',dur:.3,scale:1});
   for(let k=0;k<3;k++){
@@ -2215,7 +2232,6 @@ function renderWin(){
     g.arc(268,178,rrr,-.6,.6);
     g.stroke();
   }
-  // ноты от гитар
   for(const pt of G.parts){
     if(pt.note)drawNote(pt.x-camw,pt.y,pt.col,clamp(pt.life/pt.max,0,1));
     else{
@@ -2314,7 +2330,6 @@ function update(dt){
       }
       break;
     case 'win':
-      // ноты от гитар Владимира и Сани
       G.noteT-=dt;
       if(G.noteT<=0){
         G.noteT=.4;
